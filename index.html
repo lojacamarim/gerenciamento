@@ -1583,6 +1583,34 @@
         </div>
     </div>
     
+
+    <!-- Debug Cloud (remover depois) -->
+<div style="position: fixed; bottom: 10px; right: 10px; z-index: 9999;">
+    <button onclick="testCloud()" style="background: #ff6b8b; color: white; border: none; padding: 10px; border-radius: 5px;">
+        Testar Cloud
+    </button>
+</div>
+
+<script>
+function testCloud() {
+    console.log('=== TESTE CLOUD ===');
+    console.log('URL atual:', window.location.href);
+    console.log('Token salvo:', CloudManager.getToken() ? 'Sim' : 'Não');
+    console.log('Gist ID:', CloudManager.getGistId() || 'Nenhum');
+    
+    // Testar token
+    if (CloudManager.getToken()) {
+        CloudManager.testToken().then(result => {
+            console.log('Teste token:', result);
+            alert(result.valid ? 'Token OK!' : 'Token inválido');
+        });
+    } else {
+        alert('Configure um token primeiro na aba Nuvem');
+    }
+}
+</script>
+
+    <script src="cloud.js" defer></script>
     <input type="file" id="file-input" style="display: none;" accept=".json">
 </body>
 </html>
