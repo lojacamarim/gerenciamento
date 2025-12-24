@@ -6135,10 +6135,10 @@ let googleBackups = [];
 let driveManager = null;
 
 // Configuração (substitua com suas credenciais)
-const GOOGLE_CLIENT_ID = '821978818510-ia36jn3fn9ucqgl27jmtbaqeee9kujmp.apps.googleusercontent.com';
-const GOOGLE_API_KEY = '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'; // Opcional
+const GOOGLE_CLIENT_ID = '821978818510-d4fogv6340fi41eh1g2qij0829vu20on.apps.googleusercontent.com';
+const GOOGLE_API_KEY = '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'; // Opcional
 const SCOPES = 'https://www.googleapis.com/auth/drive.file';
-const APP_FOLDER_NAME = 'Camarim Boutique Backup';
+const APP_FOLDER_NAME = 'Camarim Backup';
 const APP_FOLDER_MIME = 'application/vnd.google-apps.folder';
 
 class DriveManager {
