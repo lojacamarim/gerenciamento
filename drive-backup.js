@@ -1,533 +1,431 @@
-// drive-backup.js
-// Sistema de backup simplificado com Google Drive para Sistema Camarim
+// drive-backup-simple.js
+// Sistema de backup ULTRA SIMPLIFICADO para Google Drive
 
 // ============================================
-// CONFIGURAÇÃO INICIAL
+// CONFIGURAÇÃO SUPER SIMPLES
 // ============================================
 
-// Substitua estes valores pelos seus do Google Cloud Console
+// PASSO 1: Obtenha estas credenciais em https://console.cloud.google.com/
 var GOOGLE_CLIENT_ID = '951619466938-fnhdvhrvpp3jmj8om1pracs1pqarui1k.apps.googleusercontent.com';
-var GOOGLE_API_KEY = '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'; // Opcional
 
-// Nome da pasta de backups
-var BACKUP_FOLDER_NAME = 'Camarim Backups';
-
-// Estado do sistema de backup
-var driveBackupState = {
-    initialized: false,
+// Estado do sistema
+var backupState = {
+    token: null,
     signedIn: false,
-    gapiLoaded: false,
-    gisLoaded: false,
-    backupInProgress: false,
-    lastBackupDate: null,
-    backupFolderId: null,
-    tokenClient: null
+    backups: []
 };
 
 // ============================================
-// 1. INICIALIZAÇÃO DO SISTEMA
+// 1. AUTENTICAÇÃO SIMPLES COM POPUP
 // ============================================
 
 /**
- * Inicializa o sistema de backup com Google Drive
+ * Faz login no Google Drive - MÉTODO SIMPLES
  */
-async function initDriveBackup() {
-    console.log('🚀 Inicializando sistema de backup Google Drive...');
+function signInToDrive() {
+    // Criar URL de autenticação
+    var authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' +
+        'client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID) +
+        '&redirect_uri=' + encodeURIComponent(window.location.origin + window.location.pathname) +
+        '&response_type=token' +
+        '&scope=' + encodeURIComponent('https://www.googleapis.com/auth/drive.file') +
+        '&include_granted_scopes=true' +
+        '&state=pass_through_value' +
+        '&prompt=consent';
     
-    try {
-        // Carregar API do Google
-        await loadGoogleApis();
-        
-        // Inicializar APIs
-        await initGoogleApis();
-        
-        // Tentar login automático
-        await tryAutoLogin();
-        
-        driveBackupState.initialized = true;
-        console.log('✅ Sistema de backup Google Drive inicializado');
-        
-        // Adicionar interface
-        setTimeout(addDriveBackupUI, 1000);
-        
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Erro ao inicializar backup Google Drive:', error);
-        showDriveBackupAlert('Sistema de backup inicializado (faça login quando necessário)', 'info');
-        return false;
-    }
-}
-
-/**
- * Carrega as APIs do Google
- */
-function loadGoogleApis() {
-    return new Promise(function(resolve, reject) {
-        // Verificar se já está carregado
-        if (typeof gapi !== 'undefined' && typeof google !== 'undefined') {
-            driveBackupState.gapiLoaded = true;
-            driveBackupState.gisLoaded = true;
-            resolve();
-            return;
-        }
-        
-        // Carregar gapi (Google API Client)
-        var gapiScript = document.createElement('script');
-        gapiScript.src = 'https://apis.google.com/js/api.js';
-        gapiScript.onload = function() {
-            // Carregar gis (Google Identity Services)
-            var gisScript = document.createElement('script');
-            gisScript.src = 'https://accounts.google.com/gsi/client';
-            gisScript.onload = function() {
-                driveBackupState.gapiLoaded = true;
-                driveBackupState.gisLoaded = true;
-                resolve();
-            };
-            gisScript.onerror = function() {
-                console.warn('⚠️ GIS não carregado, usando método alternativo');
-                driveBackupState.gapiLoaded = true;
-                resolve();
-            };
-            document.head.appendChild(gisScript);
-        };
-        gapiScript.onerror = function() {
-            reject(new Error('Falha ao carregar API do Google'));
-        };
-        document.head.appendChild(gapiScript);
-    });
-}
-
-/**
- * Inicializa as APIs do Google
- */
-async function initGoogleApis() {
-    try {
-        // Inicializar gapi
-        await gapi.load('client', function() {
-            console.log('✅ Google API Client carregado');
-        });
-        
-        // Inicializar cliente OAuth2 se tiver GIS
-        if (driveBackupState.gisLoaded) {
-            driveBackupState.tokenClient = google.accounts.oauth2.initTokenClient({
-                client_id: GOOGLE_CLIENT_ID,
-                scope: 'https://www.googleapis.com/auth/drive.file',
-                callback: function(response) {
-                    if (response.error) {
-                        console.error('❌ Erro de autenticação:', response.error);
-                        showDriveBackupAlert('Erro de autenticação: ' + response.error, 'error');
-                    } else {
-                        driveBackupState.signedIn = true;
-                        console.log('✅ Autenticado com sucesso');
-                        showDriveBackupAlert('Conectado ao Google Drive com sucesso!', 'success');
-                        updateDriveBackupStatus();
-                    }
-                }
-            });
-        }
-        
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Erro ao inicializar APIs:', error);
-        throw error;
-    }
-}
-
-/**
- * Tenta login automático
- */
-async function tryAutoLogin() {
-    // Verificar se já tem token salvo
-    var token = localStorage.getItem('google_drive_token');
-    if (token) {
+    // Abrir popup para login
+    var width = 500;
+    var height = 600;
+    var left = (window.screen.width - width) / 2;
+    var top = (window.screen.height - height) / 2;
+    
+    var popup = window.open(
+        authUrl,
+        'Google Login',
+        'width=' + width + ',height=' + height + ',left=' + left + ',top=' + top
+    );
+    
+    // Verificar token periodicamente
+    var checkPopup = setInterval(function() {
         try {
-            // Validar token
-            var response = await fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + token);
-            if (response.ok) {
-                driveBackupState.signedIn = true;
-                console.log('✅ Login automático realizado');
+            if (popup.closed) {
+                clearInterval(checkPopup);
+                checkTokenFromURL();
             }
-        } catch (error) {
-            // Token inválido
-            localStorage.removeItem('google_drive_token');
+            
+            // Tentar obter token do popup
+            var popupUrl = popup.location.href;
+            if (popupUrl.includes('access_token=')) {
+                var token = extractTokenFromURL(popupUrl);
+                if (token) {
+                    backupState.token = token;
+                    backupState.signedIn = true;
+                    localStorage.setItem('drive_token', token);
+                    popup.close();
+                    clearInterval(checkPopup);
+                    showBackupAlert('✅ Conectado ao Google Drive!', 'success');
+                    updateBackupUI();
+                    loadBackups();
+                }
+            }
+        } catch (e) {
+            // Ignorar erros de cross-origin
         }
+    }, 500);
+}
+
+/**
+ * Extrai token da URL
+ */
+function extractTokenFromURL(url) {
+    var match = url.match(/access_token=([^&]+)/);
+    return match ? match[1] : null;
+}
+
+/**
+ * Verifica token na URL atual (para redirect)
+ */
+function checkTokenFromURL() {
+    if (window.location.hash) {
+        var token = extractTokenFromURL(window.location.hash);
+        if (token) {
+            backupState.token = token;
+            backupState.signedIn = true;
+            localStorage.setItem('drive_token', token);
+            
+            // Limpar URL
+            history.replaceState(null, null, ' ');
+            
+            showBackupAlert('✅ Conectado ao Google Drive!', 'success');
+            updateBackupUI();
+            loadBackups();
+        }
+    }
+}
+
+/**
+ * Faz logout
+ */
+function signOutFromDrive() {
+    backupState.token = null;
+    backupState.signedIn = false;
+    localStorage.removeItem('drive_token');
+    showBackupAlert('Desconectado do Google Drive', 'info');
+    updateBackupUI();
+}
+
+/**
+ * Tenta login automático com token salvo
+ */
+function tryAutoLogin() {
+    var savedToken = localStorage.getItem('drive_token');
+    if (savedToken) {
+        // Verificar se o token ainda é válido
+        fetch('https://www.googleapis.com/oauth2/v3/tokeninfo?access_token=' + savedToken)
+            .then(function(response) {
+                if (response.ok) {
+                    backupState.token = savedToken;
+                    backupState.signedIn = true;
+                    console.log('✅ Login automático realizado');
+                    updateBackupUI();
+                    loadBackups();
+                } else {
+                    localStorage.removeItem('drive_token');
+                }
+            })
+            .catch(function() {
+                localStorage.removeItem('drive_token');
+            });
     }
 }
 
 // ============================================
-// 2. AUTENTICAÇÃO SIMPLIFICADA
+// 2. SISTEMA DE BACKUP DIRETO
 // ============================================
 
 /**
- * Faz login no Google Drive
+ * Cria um backup simples
  */
-async function signInToDrive() {
-    try {
-        if (!driveBackupState.gisLoaded) {
-            showDriveBackupAlert('API do Google não carregada. Recarregue a página.', 'error');
-            return false;
-        }
-        
-        // Solicitar token
-        driveBackupState.tokenClient.requestAccessToken({
-            prompt: 'consent'
-        });
-        
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Erro ao fazer login:', error);
-        showDriveBackupAlert('Erro ao conectar: ' + error.message, 'error');
+async function createSimpleBackup(description) {
+    if (!backupState.signedIn) {
+        showBackupAlert('Faça login primeiro', 'warning');
         return false;
     }
-}
-
-/**
- * Faz logout do Google Drive
- */
-async function signOutFromDrive() {
-    try {
-        if (driveBackupState.signedIn) {
-            var token = google.accounts.oauth2.getToken();
-            if (token) {
-                google.accounts.oauth2.revoke(token.access_token, function() {
-                    console.log('✅ Token revogado');
-                });
-            }
-        }
-        
-        driveBackupState.signedIn = false;
-        localStorage.removeItem('google_drive_token');
-        
-        console.log('✅ Logout realizado');
-        showDriveBackupAlert('Desconectado do Google Drive', 'info');
-        updateDriveBackupStatus();
-        
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Erro ao fazer logout:', error);
-        return false;
-    }
-}
-
-/**
- * Retorna o status de autenticação
- */
-function isSignedIn() {
-    return driveBackupState.signedIn;
-}
-
-/**
- * Obtém token de acesso
- */
-function getAccessToken() {
-    if (!driveBackupState.signedIn) return null;
     
     try {
-        var token = google.accounts.oauth2.getToken();
-        return token ? token.access_token : null;
-    } catch (error) {
-        return null;
-    }
-}
-
-// ============================================
-// 3. OPERAÇÕES DE BACKUP SIMPLIFICADAS
-// ============================================
-
-/**
- * Cria um backup no Google Drive
- */
-async function createBackup(description) {
-    if (!driveBackupState.signedIn) {
-        showDriveBackupAlert('Faça login no Google Drive primeiro', 'warning');
-        return false;
-    }
-    
-    try {
-        driveBackupState.backupInProgress = true;
-        showDriveBackupAlert('Criando backup no Google Drive...', 'info');
+        showBackupAlert('Criando backup...', 'info');
         
         // 1. Obter dados do sistema
-        var systemData = await getSystemDataForBackup();
+        var systemData = await getSystemData();
         
-        // 2. Criar nome do arquivo
-        var timestamp = new Date().toISOString()
-            .replace(/[:.]/g, '-')
-            .replace('T', '_')
-            .substring(0, 19);
+        // 2. Adicionar informações do backup
+        systemData.backupInfo = {
+            date: new Date().toISOString(),
+            description: description || 'Backup automático',
+            version: '1.0',
+            user: 'Sistema Camarim'
+        };
         
-        var fileName = 'Camarim_Backup_' + timestamp + '.json';
+        // 3. Criar nome do arquivo
+        var dateStr = new Date().toLocaleDateString('pt-BR').replace(/\//g, '-');
+        var timeStr = new Date().toLocaleTimeString('pt-BR').replace(/:/g, '-');
+        var fileName = 'Camarim_Backup_' + dateStr + '_' + timeStr + '.json';
         if (description) {
-            fileName = 'Camarim_' + description.replace(/[^a-zA-Z0-9]/g, '_') + '_' + timestamp + '.json';
+            fileName = 'Camarim_' + description.replace(/[^a-z0-9]/gi, '_') + '_' + dateStr + '.json';
         }
         
-        // 3. Converter para JSON
-        var fileContent = JSON.stringify(systemData, null, 2);
-        
-        // 4. Encontrar ou criar pasta de backups
-        var folderId = await findOrCreateBackupFolder();
-        
-        // 5. Upload para o Google Drive
-        var success = await uploadToGoogleDrive(fileName, fileContent, folderId, description);
+        // 4. Criar arquivo no Google Drive
+        var success = await createFileInDrive(fileName, JSON.stringify(systemData, null, 2));
         
         if (success) {
-            driveBackupState.lastBackupDate = new Date();
-            showDriveBackupAlert('✅ Backup criado com sucesso!', 'success');
-            console.log('✅ Backup criado: ' + fileName);
-            
-            // Atualizar lista de backups
-            setTimeout(loadBackupList, 1000);
+            showBackupAlert('✅ Backup criado com sucesso!', 'success');
+            loadBackups();
+            return true;
         }
         
-        return success;
+        return false;
         
     } catch (error) {
         console.error('❌ Erro ao criar backup:', error);
-        showDriveBackupAlert('Erro ao criar backup: ' + error.message, 'error');
+        showBackupAlert('Erro: ' + error.message, 'error');
         return false;
-        
-    } finally {
-        driveBackupState.backupInProgress = false;
     }
 }
 
 /**
- * Obtém dados do sistema para backup
+ * Obtém dados do sistema
  */
-async function getSystemDataForBackup() {
-    // Usar databaseManager ou localStorage
+async function getSystemData() {
+    // Tentar usar databaseManager
     if (typeof databaseManager !== 'undefined' && databaseManager.getSystemData) {
         return await databaseManager.getSystemData();
-    } else {
-        var savedData = localStorage.getItem('camarim-system-data');
-        return savedData ? JSON.parse(savedData) : {
-            products: [],
-            sales: [],
-            settings: {},
-            backupInfo: {
-                date: new Date().toISOString(),
-                version: '1.0',
-                totalProducts: 0,
-                totalSales: 0
-            }
-        };
     }
+    
+    // Fallback para localStorage
+    var savedData = localStorage.getItem('camarim-system-data');
+    if (savedData) {
+        return JSON.parse(savedData);
+    }
+    
+    // Dados vazios
+    return {
+        products: [],
+        sales: [],
+        settings: {},
+        backupInfo: {
+            date: new Date().toISOString(),
+            message: 'Backup de dados vazios'
+        }
+    };
 }
 
 /**
- * Encontra ou cria pasta de backups
+ * Cria arquivo no Google Drive
  */
-async function findOrCreateBackupFolder() {
-    try {
-        // Verificar se já temos o ID da pasta
-        if (driveBackupState.backupFolderId) {
-            return driveBackupState.backupFolderId;
-        }
-        
-        var token = getAccessToken();
-        if (!token) throw new Error('Token não disponível');
-        
-        // Procurar pasta existente
-        var searchUrl = 'https://www.googleapis.com/drive/v3/files?' +
-            'q=' + encodeURIComponent("name='" + BACKUP_FOLDER_NAME + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") +
-            '&fields=files(id,name)' +
-            '&access_token=' + token;
-        
-        var response = await fetch(searchUrl);
-        var data = await response.json();
-        
-        if (data.files && data.files.length > 0) {
-            driveBackupState.backupFolderId = data.files[0].id;
-            return data.files[0].id;
-        }
-        
-        // Criar nova pasta
-        var createUrl = 'https://www.googleapis.com/drive/v3/files?access_token=' + token;
-        var folderData = {
-            name: BACKUP_FOLDER_NAME,
-            mimeType: 'application/vnd.google-apps.folder'
-        };
-        
-        var createResponse = await fetch(createUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(folderData)
-        });
-        
-        var newFolder = await createResponse.json();
-        driveBackupState.backupFolderId = newFolder.id;
-        
-        console.log('✅ Pasta de backups criada: ' + newFolder.id);
-        return newFolder.id;
-        
-    } catch (error) {
-        console.error('❌ Erro ao configurar pasta:', error);
-        throw error;
+async function createFileInDrive(fileName, content) {
+    var token = backupState.token;
+    if (!token) throw new Error('Não autenticado');
+    
+    // 1. Procurar pasta "Camarim Backups" ou criar
+    var folderId = await findOrCreateFolder('Camarim Backups');
+    
+    // 2. Criar arquivo
+    var fileMetadata = {
+        name: fileName,
+        mimeType: 'application/json',
+        parents: [folderId]
+    };
+    
+    var formData = new FormData();
+    formData.append('metadata', new Blob([JSON.stringify(fileMetadata)], { type: 'application/json' }));
+    formData.append('file', new Blob([content], { type: 'application/json' }));
+    
+    var response = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+        method: 'POST',
+        headers: {
+            'Authorization': 'Bearer ' + token
+        },
+        body: formData
+    });
+    
+    if (!response.ok) {
+        var error = await response.json();
+        throw new Error(error.error?.message || 'Erro ao criar arquivo');
     }
+    
+    return true;
 }
 
 /**
- * Faz upload de arquivo para o Google Drive
+ * Encontra ou cria pasta no Google Drive
  */
-async function uploadToGoogleDrive(fileName, fileContent, folderId, description) {
-    try {
-        var token = getAccessToken();
-        if (!token) throw new Error('Token não disponível');
-        
-        // Criar metadados do arquivo
-        var metadata = {
-            name: fileName,
-            mimeType: 'application/json',
-            parents: [folderId],
-            description: 'Backup Camarim - ' + new Date().toLocaleString('pt-BR') + (description ? ' - ' + description : '')
-        };
-        
-        // Criar formulário para upload multipart
-        var form = new FormData();
-        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', new Blob([fileContent], { type: 'application/json' }));
-        
-        // Fazer upload
-        var uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&access_token=' + token;
-        var response = await fetch(uploadUrl, {
-            method: 'POST',
-            body: form
-        });
-        
-        if (!response.ok) {
-            var error = await response.json();
-            throw new Error(error.error ? error.error.message : 'Erro no upload');
-        }
-        
-        var result = await response.json();
-        console.log('✅ Upload realizado: ' + result.id);
-        return true;
-        
-    } catch (error) {
-        console.error('❌ Erro no upload:', error);
-        throw error;
+async function findOrCreateFolder(folderName) {
+    var token = backupState.token;
+    
+    // Procurar pasta existente
+    var searchUrl = 'https://www.googleapis.com/drive/v3/files?' +
+        'q=' + encodeURIComponent("name='" + folderName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") +
+        '&fields=files(id,name)' +
+        '&access_token=' + token;
+    
+    var response = await fetch(searchUrl);
+    var data = await response.json();
+    
+    if (data.files && data.files.length > 0) {
+        return data.files[0].id;
     }
+    
+    // Criar nova pasta
+    var createUrl = 'https://www.googleapis.com/drive/v3/files?access_token=' + token;
+    var folderData = {
+        name: folderName,
+        mimeType: 'application/vnd.google-apps.folder'
+    };
+    
+    var createResponse = await fetch(createUrl, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(folderData)
+    });
+    
+    var newFolder = await createResponse.json();
+    return newFolder.id;
 }
 
 // ============================================
-// 4. LISTAGEM E RESTAURAÇÃO
+// 3. LISTAR E RESTAURAR BACKUPS
 // ============================================
 
 /**
  * Lista backups disponíveis
  */
-async function listBackups() {
-    if (!driveBackupState.signedIn) {
-        return [];
-    }
+async function loadBackups() {
+    if (!backupState.signedIn) return;
     
     try {
-        var token = getAccessToken();
-        if (!token) return [];
+        var token = backupState.token;
         
-        // Primeiro, garantir que temos a pasta
-        var folderId = await findOrCreateBackupFolder();
+        // 1. Encontrar pasta "Camarim Backups"
+        var folderId = await findFolderId('Camarim Backups');
+        if (!folderId) {
+            backupState.backups = [];
+            updateBackupListUI();
+            return;
+        }
         
-        // Buscar arquivos na pasta
+        // 2. Buscar arquivos na pasta
         var searchUrl = 'https://www.googleapis.com/drive/v3/files?' +
             'q=' + encodeURIComponent("'" + folderId + "' in parents and mimeType='application/json' and trashed=false") +
-            '&fields=files(id,name,size,createdTime,modifiedTime,description)' +
+            '&fields=files(id,name,createdTime,size)' +
             '&orderBy=createdTime desc' +
-            '&pageSize=20' +
             '&access_token=' + token;
         
         var response = await fetch(searchUrl);
         var data = await response.json();
         
-        if (!data.files) return [];
+        if (data.files) {
+            backupState.backups = data.files.map(function(file) {
+                return {
+                    id: file.id,
+                    name: file.name,
+                    date: new Date(file.createdTime),
+                    size: file.size || 0,
+                    formattedDate: new Date(file.createdTime).toLocaleString('pt-BR')
+                };
+            });
+        } else {
+            backupState.backups = [];
+        }
         
-        // Formatar resultados
-        return data.files.map(function(file) {
-            return {
-                id: file.id,
-                name: file.name,
-                size: file.size ? formatFileSize(file.size) : 'N/A',
-                createdTime: new Date(file.createdTime),
-                formattedDate: new Date(file.createdTime).toLocaleString('pt-BR'),
-                description: file.description || ''
-            };
-        });
+        updateBackupListUI();
         
     } catch (error) {
-        console.error('❌ Erro ao listar backups:', error);
-        return [];
+        console.error('❌ Erro ao carregar backups:', error);
+        backupState.backups = [];
     }
+}
+
+/**
+ * Encontra ID da pasta
+ */
+async function findFolderId(folderName) {
+    var token = backupState.token;
+    
+    var searchUrl = 'https://www.googleapis.com/drive/v3/files?' +
+        'q=' + encodeURIComponent("name='" + folderName + "' and mimeType='application/vnd.google-apps.folder' and trashed=false") +
+        '&fields=files(id)' +
+        '&access_token=' + token;
+    
+    var response = await fetch(searchUrl);
+    var data = await response.json();
+    
+    if (data.files && data.files.length > 0) {
+        return data.files[0].id;
+    }
+    
+    return null;
 }
 
 /**
  * Restaura um backup
  */
 async function restoreBackup(fileId) {
-    if (!driveBackupState.signedIn) {
-        showDriveBackupAlert('Faça login no Google Drive primeiro', 'warning');
+    if (!confirm('⚠️ ATENÇÃO!\n\nIsso substituirá TODOS os dados atuais pelo backup.\n\nDeseja continuar?')) {
         return false;
     }
     
-    var confirmRestore = confirm('⚠️ ATENÇÃO!\n\nEsta ação irá substituir TODOS os dados atuais pelos do backup selecionado.\n\nDeseja continuar?');
-    if (!confirmRestore) return false;
-    
     try {
-        showDriveBackupAlert('Restaurando backup...', 'info');
+        showBackupAlert('Restaurando backup...', 'info');
         
-        var token = getAccessToken();
-        if (!token) throw new Error('Token não disponível');
+        var token = backupState.token;
         
-        // Baixar arquivo
-        var downloadUrl = 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&access_token=' + token;
-        var response = await fetch(downloadUrl);
+        // 1. Baixar arquivo
+        var downloadUrl = 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media';
+        var response = await fetch(downloadUrl, {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        });
         
-        if (!response.ok) {
-            throw new Error('Erro ao baixar arquivo');
-        }
+        if (!response.ok) throw new Error('Erro ao baixar arquivo');
         
         var backupData = await response.json();
         
-        // Validar dados
+        // 2. Validar dados
         if (!backupData.products || !Array.isArray(backupData.products)) {
             throw new Error('Arquivo de backup inválido');
         }
         
-        // Criar backup dos dados atuais antes de restaurar
-        await createBackup('antes_da_restauracao');
+        // 3. Criar backup atual antes de restaurar
+        await createSimpleBackup('antes_da_restauracao');
         
-        // Restaurar dados
-        await restoreSystemData(backupData);
+        // 4. Restaurar dados
+        await applyBackupData(backupData);
         
-        showDriveBackupAlert('✅ Backup restaurado com sucesso!', 'success');
+        showBackupAlert('✅ Backup restaurado com sucesso!', 'success');
         return true;
         
     } catch (error) {
-        console.error('❌ Erro ao restaurar backup:', error);
-        showDriveBackupAlert('Erro ao restaurar: ' + error.message, 'error');
+        console.error('❌ Erro ao restaurar:', error);
+        showBackupAlert('Erro: ' + error.message, 'error');
         return false;
     }
 }
 
 /**
- * Restaura dados no sistema
+ * Aplica dados do backup
  */
-async function restoreSystemData(backupData) {
-    // Atualizar dados do sistema
+async function applyBackupData(backupData) {
+    // Atualizar systemData global
     if (typeof systemData !== 'undefined') {
-        systemData = {
-            products: backupData.products || [],
-            sales: backupData.sales || [],
-            settings: backupData.settings || (systemData ? systemData.settings : {})
-        };
+        systemData.products = backupData.products || [];
+        systemData.sales = backupData.sales || [];
+        systemData.settings = backupData.settings || {};
     }
     
-    // Salvar no databaseManager
+    // Salvar usando databaseManager
     if (typeof databaseManager !== 'undefined' && databaseManager.saveSystemData) {
         await databaseManager.saveSystemData(systemData);
     } else {
@@ -540,89 +438,87 @@ async function restoreSystemData(backupData) {
         if (typeof loadData === 'function') loadData();
         if (typeof updateDashboard === 'function') updateDashboard();
         if (typeof updateProductsList === 'function') updateProductsList();
-        if (typeof updateInventorySummary === 'function') updateInventorySummary();
         if (typeof updateSalesList === 'function') updateSalesList();
+        if (typeof showAlert === 'function') {
+            showAlert('Dados restaurados do backup!', 'success');
+        }
     }, 500);
 }
 
 /**
- * Baixa um backup localmente
+ * Baixa backup localmente
  */
-async function downloadBackup(fileId, fileName) {
+async function downloadBackupLocally(fileId, fileName) {
     try {
-        var token = getAccessToken();
-        if (!token) throw new Error('Token não disponível');
+        var token = backupState.token;
         
-        // Baixar arquivo
-        var downloadUrl = 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media&access_token=' + token;
-        var response = await fetch(downloadUrl);
+        var downloadUrl = 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media';
+        var response = await fetch(downloadUrl, {
+            headers: {
+                'Authorization': 'Bearer ' + token
+            }
+        });
         
-        if (!response.ok) {
-            throw new Error('Erro ao baixar arquivo');
-        }
+        if (!response.ok) throw new Error('Erro ao baixar');
         
         var backupData = await response.json();
         var dataStr = JSON.stringify(backupData, null, 2);
         var blob = new Blob([dataStr], { type: 'application/json' });
         var url = URL.createObjectURL(blob);
         
-        // Criar link de download
         var link = document.createElement('a');
         link.href = url;
-        link.download = fileName || 'backup_camarim_' + new Date().toISOString().slice(0, 10) + '.json';
+        link.download = fileName || 'backup_camarim.json';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
         
         URL.revokeObjectURL(url);
         
-        showDriveBackupAlert('✅ Backup baixado com sucesso!', 'success');
-        return true;
+        showBackupAlert('✅ Backup baixado!', 'success');
         
     } catch (error) {
-        console.error('❌ Erro ao baixar backup:', error);
-        showDriveBackupAlert('Erro ao baixar: ' + error.message, 'error');
-        return false;
+        console.error('❌ Erro ao baixar:', error);
+        showBackupAlert('Erro ao baixar: ' + error.message, 'error');
     }
 }
 
 // ============================================
-// 5. INTERFACE DO USUÁRIO
+// 4. INTERFACE SIMPLES
 // ============================================
 
 /**
- * Adiciona interface de backup
+ * Adiciona interface básica
  */
-function addDriveBackupUI() {
+function addSimpleBackupUI() {
     // Botão no cabeçalho
     addHeaderButton();
     
     // Seção nas configurações
     addSettingsSection();
     
-    // Modal de gerenciamento
-    createBackupModal();
+    // Modal simples
+    createSimpleModal();
 }
 
 /**
  * Adiciona botão no cabeçalho
  */
 function addHeaderButton() {
-    var headerActions = document.querySelector('.header-actions');
-    if (!headerActions) return;
+    var header = document.querySelector('header');
+    if (!header) return;
     
-    if (document.getElementById('drive-backup-btn')) return;
+    // Encontrar área de botões
+    var headerActions = document.querySelector('.header-actions') || header;
     
     var button = document.createElement('button');
-    button.id = 'drive-backup-btn';
+    button.id = 'simple-backup-btn';
     button.className = 'btn btn-info';
     button.innerHTML = '<i class="fas fa-cloud"></i> Drive';
     button.title = 'Backup no Google Drive';
     button.style.marginLeft = '10px';
     
-    button.addEventListener('click', function() {
-        showBackupModal();
-    });
+    button.addEventListener('click', showSimpleModal);
     
     headerActions.appendChild(button);
 }
@@ -634,146 +530,103 @@ function addSettingsSection() {
     var settingsView = document.getElementById('settings-view');
     if (!settingsView) return;
     
-    if (document.getElementById('drive-backup-section')) return;
-    
     var section = document.createElement('div');
-    section.id = 'drive-backup-section';
     section.className = 'card mt-20';
     section.innerHTML = '\
         <div class="card-header">\
-            <h3><i class="fas fa-cloud"></i> Backup no Google Drive</h3>\
+            <h3><i class="fas fa-cloud"></i> Backup Google Drive</h3>\
         </div>\
         <div class="card-body">\
-            <div id="drive-status" class="alert alert-info">\
-                <i class="fas fa-sync fa-spin"></i> Verificando status...\
+            <div id="simple-status" class="alert alert-info">\
+                <i class="fas fa-cloud"></i> Pronto para backup\
             </div>\
             \
-            <div id="drive-controls" class="d-none">\
-                <div class="form-group">\
-                    <button id="drive-login-btn" class="btn btn-success">\
-                        <i class="fas fa-sign-in-alt"></i> Conectar ao Google Drive\
-                    </button>\
-                    <button id="drive-logout-btn" class="btn btn-warning ml-10">\
-                        <i class="fas fa-sign-out-alt"></i> Desconectar\
-                    </button>\
-                </div>\
-                \
-                <div class="form-group mt-20">\
-                    <label for="backup-desc">Descrição do backup (opcional):</label>\
-                    <input type="text" id="backup-desc" class="form-control" placeholder="Ex: Backup mensal">\
-                </div>\
-                \
-                <button id="drive-create-btn" class="btn btn-primary">\
-                    <i class="fas fa-cloud-upload-alt"></i> Criar Backup Agora\
+            <div class="form-group">\
+                <button id="simple-login-btn" class="btn btn-success">\
+                    <i class="fas fa-sign-in-alt"></i> Conectar ao Google Drive\
                 </button>\
-                \
-                <button id="drive-manage-btn" class="btn btn-info ml-10">\
-                    <i class="fas fa-list"></i> Ver Backups\
+                <button id="simple-logout-btn" class="btn btn-warning ml-10 d-none">\
+                    <i class="fas fa-sign-out-alt"></i> Desconectar\
                 </button>\
             </div>\
+            \
+            <div class="form-group mt-20">\
+                <label>Descrição do backup:</label>\
+                <input type="text" id="simple-desc" class="form-control" placeholder="Ex: Backup mensal">\
+            </div>\
+            \
+            <button id="simple-create-btn" class="btn btn-primary">\
+                <i class="fas fa-cloud-upload-alt"></i> Criar Backup\
+            </button>\
+            \
+            <button id="simple-view-btn" class="btn btn-info ml-10">\
+                <i class="fas fa-list"></i> Ver Backups\
+            </button>\
         </div>\
     ';
     
     settingsView.appendChild(section);
     
-    // Adicionar event listeners
+    // Event listeners
     setTimeout(function() {
-        document.getElementById('drive-login-btn')?.addEventListener('click', signInToDrive);
-        document.getElementById('drive-logout-btn')?.addEventListener('click', signOutFromDrive);
-        document.getElementById('drive-create-btn')?.addEventListener('click', function() {
-            var desc = document.getElementById('backup-desc')?.value || '';
-            createBackup(desc);
+        document.getElementById('simple-login-btn')?.addEventListener('click', signInToDrive);
+        document.getElementById('simple-logout-btn')?.addEventListener('click', signOutFromDrive);
+        document.getElementById('simple-create-btn')?.addEventListener('click', function() {
+            var desc = document.getElementById('simple-desc')?.value || '';
+            createSimpleBackup(desc);
         });
-        document.getElementById('drive-manage-btn')?.addEventListener('click', showBackupModal);
+        document.getElementById('simple-view-btn')?.addEventListener('click', showSimpleModal);
         
-        // Atualizar status
-        updateDriveStatus();
+        updateSimpleUI();
     }, 100);
 }
 
 /**
- * Cria modal de backup
+ * Cria modal simples
  */
-function createBackupModal() {
-    if (document.getElementById('backup-modal')) return;
+function createSimpleModal() {
+    if (document.getElementById('simple-backup-modal')) return;
     
     var modal = document.createElement('div');
-    modal.id = 'backup-modal';
+    modal.id = 'simple-backup-modal';
     modal.className = 'modal';
+    modal.style.display = 'none';
     
     modal.innerHTML = '\
-        <div class="modal-content" style="max-width: 800px;">\
+        <div class="modal-content" style="max-width: 700px;">\
             <div class="modal-header">\
-                <h2><i class="fas fa-cloud"></i> Backups - Google Drive</h2>\
+                <h2><i class="fas fa-cloud"></i> Backups do Google Drive</h2>\
                 <button class="modal-close">&times;</button>\
             </div>\
             \
             <div class="modal-body">\
-                <div class="row">\
-                    <div class="col-6">\
-                        <div class="card">\
-                            <div class="card-header">\
-                                <h3><i class="fas fa-user"></i> Status</h3>\
-                            </div>\
-                            <div class="card-body">\
-                                <div id="modal-status" class="alert alert-info">\
-                                    <i class="fas fa-cloud"></i> Pronto para conectar\
-                                </div>\
-                                \
-                                <div id="modal-login-section" class="text-center">\
-                                    <button id="modal-login-btn" class="btn btn-success btn-large">\
-                                        <i class="fas fa-sign-in-alt"></i> Conectar ao Google Drive\
-                                    </button>\
-                                    <p class="text-muted mt-10">Armazene seus backups na nuvem</p>\
-                                </div>\
-                                \
-                                <div id="modal-user-section" class="d-none">\
-                                    <div class="user-info-box">\
-                                        <i class="fas fa-user-circle fa-3x"></i>\
-                                        <div class="user-details">\
-                                            <strong>Conectado</strong><br>\
-                                            <small>Google Drive</small>\
-                                        </div>\
-                                    </div>\
-                                    \
-                                    <div class="mt-20">\
-                                        <button id="modal-logout-btn" class="btn btn-warning btn-block">\
-                                            <i class="fas fa-sign-out-alt"></i> Desconectar\
-                                        </button>\
-                                    </div>\
-                                </div>\
-                            </div>\
+                <div id="simple-modal-status" class="alert alert-info">\
+                    <i class="fas fa-info-circle"></i> Conecte-se ao Google Drive\
+                </div>\
+                \
+                <div id="simple-modal-login" class="text-center p-20">\
+                    <button id="modal-login-btn" class="btn btn-success btn-large">\
+                        <i class="fas fa-sign-in-alt"></i> Conectar ao Google Drive\
+                    </button>\
+                    <p class="text-muted mt-10">Armazene seus backups com segurança</p>\
+                </div>\
+                \
+                <div id="simple-modal-content" class="d-none">\
+                    <div class="row mb-20">\
+                        <div class="col-8">\
+                            <input type="text" id="modal-backup-name" class="form-control" placeholder="Nome do backup">\
                         </div>\
-                        \
-                        <div class="card mt-20">\
-                            <div class="card-header">\
-                                <h3><i class="fas fa-plus"></i> Novo Backup</h3>\
-                            </div>\
-                            <div class="card-body">\
-                                <div class="form-group">\
-                                    <label>Descrição:</label>\
-                                    <input type="text" id="modal-backup-desc" class="form-control" placeholder="Ex: Backup semanal">\
-                                </div>\
-                                <button id="modal-create-btn" class="btn btn-primary btn-block" disabled>\
-                                    <i class="fas fa-cloud-upload-alt"></i> Criar Backup\
-                                </button>\
-                            </div>\
+                        <div class="col-4">\
+                            <button id="modal-create-backup" class="btn btn-primary btn-block">\
+                                <i class="fas fa-plus"></i> Criar\
+                            </button>\
                         </div>\
                     </div>\
                     \
-                    <div class="col-6">\
-                        <div class="card">\
-                            <div class="card-header">\
-                                <h3><i class="fas fa-history"></i> Backups Disponíveis</h3>\
-                            </div>\
-                            <div class="card-body" style="height: 500px; overflow-y: auto;">\
-                                <div id="backup-list-container">\
-                                    <div class="text-center text-muted p-40">\
-                                        <i class="fas fa-cloud fa-3x"></i>\
-                                        <p class="mt-20">Conecte-se para ver seus backups</p>\
-                                    </div>\
-                                </div>\
-                            </div>\
+                    <div id="backups-list" style="max-height: 400px; overflow-y: auto;">\
+                        <div class="text-center text-muted p-40">\
+                            <i class="fas fa-inbox fa-3x"></i>\
+                            <p class="mt-20">Nenhum backup encontrado</p>\
                         </div>\
                     </div>\
                 </div>\
@@ -787,346 +640,349 @@ function createBackupModal() {
     
     document.body.appendChild(modal);
     
-    // Event listeners do modal
+    // Event listeners
     setTimeout(function() {
-        // Botões de fechar
-        var closeButtons = modal.querySelectorAll('.modal-close');
-        for (var i = 0; i < closeButtons.length; i++) {
-            closeButtons[i].addEventListener('click', function() {
-                modal.classList.remove('active');
+        // Fechar modal
+        modal.querySelectorAll('.modal-close').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                modal.style.display = 'none';
             });
-        }
+        });
         
-        // Login/Logout
+        // Login no modal
         document.getElementById('modal-login-btn')?.addEventListener('click', async function() {
             await signInToDrive();
-            updateModalStatus();
-            loadModalBackupList();
+            updateSimpleModal();
         });
         
-        document.getElementById('modal-logout-btn')?.addEventListener('click', async function() {
-            await signOutFromDrive();
-            updateModalStatus();
-            loadModalBackupList();
+        // Criar backup no modal
+        document.getElementById('modal-create-backup')?.addEventListener('click', async function() {
+            var name = document.getElementById('modal-backup-name')?.value || '';
+            await createSimpleBackup(name);
+            document.getElementById('modal-backup-name').value = '';
+            updateBackupListInModal();
         });
         
-        // Criar backup
-        document.getElementById('modal-create-btn')?.addEventListener('click', async function() {
-            var desc = document.getElementById('modal-backup-desc')?.value || '';
-            await createBackup(desc);
-            loadModalBackupList();
+        // Fechar ao clicar fora
+        modal.addEventListener('click', function(e) {
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
         });
         
-        // Atualizar status inicial
-        updateModalStatus();
+        updateSimpleModal();
     }, 100);
 }
 
 /**
- * Atualiza status na interface
+ * Mostra o modal
  */
-function updateDriveStatus() {
-    var statusEl = document.getElementById('drive-status');
-    var controlsEl = document.getElementById('drive-controls');
-    
-    if (!statusEl || !controlsEl) return;
-    
-    if (driveBackupState.signedIn) {
-        statusEl.className = 'alert alert-success';
-        statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Conectado ao Google Drive';
-        controlsEl.classList.remove('d-none');
-        document.getElementById('drive-login-btn')?.classList.add('d-none');
-        document.getElementById('drive-logout-btn')?.classList.remove('d-none');
-    } else {
-        statusEl.className = 'alert alert-warning';
-        statusEl.innerHTML = '<i class="fas fa-cloud"></i> Conecte-se ao Google Drive para backup na nuvem';
-        controlsEl.classList.remove('d-none');
-        document.getElementById('drive-login-btn')?.classList.remove('d-none');
-        document.getElementById('drive-logout-btn')?.classList.add('d-none');
+function showSimpleModal() {
+    var modal = document.getElementById('simple-backup-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        updateSimpleModal();
+        updateBackupListInModal();
     }
 }
 
 /**
- * Atualiza status no modal
+ * Atualiza UI simples
  */
-function updateModalStatus() {
-    var statusEl = document.getElementById('modal-status');
-    var loginSection = document.getElementById('modal-login-section');
-    var userSection = document.getElementById('modal-user-section');
-    var createBtn = document.getElementById('modal-create-btn');
+function updateSimpleUI() {
+    var statusEl = document.getElementById('simple-status');
+    var loginBtn = document.getElementById('simple-login-btn');
+    var logoutBtn = document.getElementById('simple-logout-btn');
     
     if (!statusEl) return;
     
-    if (driveBackupState.signedIn) {
+    if (backupState.signedIn) {
         statusEl.className = 'alert alert-success';
         statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Conectado ao Google Drive';
-        
-        if (loginSection) loginSection.classList.add('d-none');
-        if (userSection) userSection.classList.remove('d-none');
-        if (createBtn) createBtn.disabled = false;
-        
+        if (loginBtn) loginBtn.classList.add('d-none');
+        if (logoutBtn) logoutBtn.classList.remove('d-none');
     } else {
         statusEl.className = 'alert alert-info';
-        statusEl.innerHTML = '<i class="fas fa-cloud"></i> Conecte-se ao Google Drive';
-        
-        if (loginSection) loginSection.classList.remove('d-none');
-        if (userSection) userSection.classList.add('d-none');
-        if (createBtn) createBtn.disabled = true;
+        statusEl.innerHTML = '<i class="fas fa-cloud"></i> Conecte-se para fazer backup na nuvem';
+        if (loginBtn) loginBtn.classList.remove('d-none');
+        if (logoutBtn) logoutBtn.classList.add('d-none');
     }
 }
 
 /**
- * Carrega lista de backups no modal
+ * Atualiza modal
  */
-async function loadModalBackupList() {
-    var container = document.getElementById('backup-list-container');
+function updateSimpleModal() {
+    var modal = document.getElementById('simple-backup-modal');
+    if (!modal) return;
+    
+    var statusEl = document.getElementById('simple-modal-status');
+    var loginSection = document.getElementById('simple-modal-login');
+    var contentSection = document.getElementById('simple-modal-content');
+    
+    if (backupState.signedIn) {
+        statusEl.className = 'alert alert-success';
+        statusEl.innerHTML = '<i class="fas fa-check-circle"></i> Conectado ao Google Drive';
+        if (loginSection) loginSection.classList.add('d-none');
+        if (contentSection) contentSection.classList.remove('d-none');
+    } else {
+        statusEl.className = 'alert alert-info';
+        statusEl.innerHTML = '<i class="fas fa-cloud"></i> Conecte-se ao Google Drive';
+        if (loginSection) loginSection.classList.remove('d-none');
+        if (contentSection) contentSection.classList.add('d-none');
+    }
+}
+
+/**
+ * Atualiza lista de backups na UI
+ */
+function updateBackupUI() {
+    updateSimpleUI();
+    updateSimpleModal();
+}
+
+/**
+ * Atualiza lista de backups no modal
+ */
+function updateBackupListInModal() {
+    var container = document.getElementById('backups-list');
     if (!container) return;
     
-    if (!driveBackupState.signedIn) {
+    if (!backupState.signedIn || backupState.backups.length === 0) {
         container.innerHTML = '\
             <div class="text-center text-muted p-40">\
-                <i class="fas fa-cloud fa-3x"></i>\
-                <p class="mt-20">Conecte-se para ver seus backups</p>\
+                <i class="fas fa-inbox fa-3x"></i>\
+                <p class="mt-20">' + 
+                    (backupState.signedIn ? 'Nenhum backup encontrado' : 'Conecte-se para ver backups') + 
+                '</p>\
             </div>\
         ';
         return;
     }
     
-    container.innerHTML = '\
-        <div class="text-center p-40">\
-            <i class="fas fa-spinner fa-spin fa-2x"></i>\
-            <p class="mt-20">Carregando backups...</p>\
-        </div>\
-    ';
+    var html = '<div class="backup-items">';
     
-    try {
-        var backups = await listBackups();
+    backupState.backups.forEach(function(backup) {
+        var dateStr = backup.formattedDate;
+        var name = backup.name.replace('.json', '').replace(/Camarim_/g, '').replace(/_/g, ' ');
         
-        if (backups.length === 0) {
-            container.innerHTML = '\
-                <div class="text-center text-muted p-40">\
-                    <i class="fas fa-inbox fa-3x"></i>\
-                    <p class="mt-20">Nenhum backup encontrado</p>\
-                    <p class="text-muted">Crie seu primeiro backup!</p>\
+        html += '\
+            <div class="backup-item">\
+                <div class="backup-item-info">\
+                    <div class="backup-name"><i class="fas fa-file-archive"></i> ' + name + '</div>\
+                    <div class="backup-date">' + dateStr + '</div>\
                 </div>\
-            ';
-            return;
-        }
-        
-        var html = '<div class="backup-list">';
-        
-        for (var i = 0; i < backups.length; i++) {
-            var backup = backups[i];
-            var dateStr = backup.formattedDate;
-            var name = backup.name.replace('.json', '');
-            
-            html += '\
-                <div class="backup-item">\
-                    <div class="backup-item-header">\
-                        <i class="fas fa-file-archive"></i>\
-                        <span class="backup-date">' + dateStr + '</span>\
-                    </div>\
-                    <div class="backup-item-body">\
-                        <div class="backup-name">' + name + '</div>\
-                        <div class="backup-size">' + backup.size + '</div>\
-                    </div>\
-                    <div class="backup-item-actions">\
-                        <button class="btn btn-small btn-success restore-btn" data-id="' + backup.id + '">\
-                            <i class="fas fa-download"></i> Restaurar\
-                        </button>\
-                        <button class="btn btn-small btn-info download-btn" data-id="' + backup.id + '" data-name="' + backup.name + '">\
-                            <i class="fas fa-file-download"></i> Baixar\
-                        </button>\
-                    </div>\
+                <div class="backup-item-actions">\
+                    <button class="btn btn-small btn-success restore-simple-btn" data-id="' + backup.id + '">\
+                        <i class="fas fa-download"></i> Restaurar\
+                    </button>\
+                    <button class="btn btn-small btn-info download-simple-btn" data-id="' + backup.id + '" data-name="' + backup.name + '">\
+                        <i class="fas fa-file-download"></i> Baixar\
+                    </button>\
                 </div>\
-            ';
-        }
-        
-        html += '</div>';
-        container.innerHTML = html;
-        
-        // Adicionar event listeners
-        setTimeout(function() {
-            // Botões de restaurar
-            var restoreBtns = container.querySelectorAll('.restore-btn');
-            for (var i = 0; i < restoreBtns.length; i++) {
-                restoreBtns[i].addEventListener('click', async function() {
-                    var fileId = this.getAttribute('data-id');
-                    var success = await restoreBackup(fileId);
-                    if (success) {
-                        var modal = document.getElementById('backup-modal');
-                        if (modal) modal.classList.remove('active');
-                    }
-                });
-            }
-            
-            // Botões de download
-            var downloadBtns = container.querySelectorAll('.download-btn');
-            for (var i = 0; i < downloadBtns.length; i++) {
-                downloadBtns[i].addEventListener('click', async function() {
-                    var fileId = this.getAttribute('data-id');
-                    var fileName = this.getAttribute('data-name');
-                    await downloadBackup(fileId, fileName);
-                });
-            }
-        }, 100);
-        
-    } catch (error) {
-        container.innerHTML = '\
-            <div class="alert alert-error">\
-                <i class="fas fa-exclamation-triangle"></i>\
-                Erro ao carregar backups: ' + error.message + '\
             </div>\
         ';
-    }
+    });
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+    // Event listeners
+    setTimeout(function() {
+        // Restaurar
+        container.querySelectorAll('.restore-simple-btn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                var fileId = this.getAttribute('data-id');
+                var success = await restoreBackup(fileId);
+                if (success) {
+                    var modal = document.getElementById('simple-backup-modal');
+                    if (modal) modal.style.display = 'none';
+                }
+            });
+        });
+        
+        // Baixar
+        container.querySelectorAll('.download-simple-btn').forEach(function(btn) {
+            btn.addEventListener('click', async function() {
+                var fileId = this.getAttribute('data-id');
+                var fileName = this.getAttribute('data-name');
+                await downloadBackupLocally(fileId, fileName);
+            });
+        });
+    }, 100);
 }
 
 /**
- * Mostra o modal de backup
+ * Atualiza lista de backups na UI geral
  */
-function showBackupModal() {
-    var modal = document.getElementById('backup-modal');
-    if (modal) {
-        modal.classList.add('active');
-        updateModalStatus();
-        loadModalBackupList();
-    }
+function updateBackupListUI() {
+    updateBackupListInModal();
 }
 
 // ============================================
-// 6. FUNÇÕES AUXILIARES
+// 5. UTILITÁRIOS
 // ============================================
-
-/**
- * Formata tamanho do arquivo
- */
-function formatFileSize(bytes) {
-    if (!bytes || bytes === 0) return '0 Bytes';
-    
-    var k = 1024;
-    var sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    var i = Math.floor(Math.log(bytes) / Math.log(k));
-    
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
-}
 
 /**
  * Mostra alerta
  */
-function showDriveBackupAlert(message, type) {
-    // Usar sistema existente se disponível
+function showBackupAlert(message, type) {
+    // Usar sistema existente
     if (typeof showAlert === 'function') {
         showAlert(message, type);
-    } else {
-        // Criar alerta simples
-        var alertDiv = document.createElement('div');
-        alertDiv.className = 'alert alert-' + type;
-        alertDiv.style.cssText = '\
-            position: fixed;\
-            top: 20px;\
-            right: 20px;\
-            z-index: 10000;\
-            max-width: 400px;\
-            padding: 15px;\
-            border-radius: 5px;\
-            box-shadow: 0 4px 12px rgba(0,0,0,0.15);\
-        ';
-        
-        var icon = type === 'success' ? 'check-circle' :
-                  type === 'error' ? 'exclamation-triangle' :
-                  type === 'warning' ? 'exclamation-circle' : 'info-circle';
-        
-        alertDiv.innerHTML = '\
-            <i class="fas fa-' + icon + '" style="margin-right: 10px;"></i>\
-            <span>' + message + '</span>\
-        ';
-        
-        document.body.appendChild(alertDiv);
-        
+        return;
+    }
+    
+    // Criar alerta simples
+    var alertDiv = document.createElement('div');
+    alertDiv.className = 'alert alert-' + type;
+    alertDiv.style.cssText = '\
+        position: fixed;\
+        top: 20px;\
+        right: 20px;\
+        z-index: 9999;\
+        padding: 15px;\
+        border-radius: 5px;\
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);\
+        max-width: 400px;\
+        animation: slideIn 0.3s ease;\
+    ';
+    
+    var icon = type === 'success' ? 'check-circle' :
+              type === 'error' ? 'exclamation-triangle' :
+              type === 'warning' ? 'exclamation-circle' : 'info-circle';
+    
+    alertDiv.innerHTML = '\
+        <i class="fas fa-' + icon + '" style="margin-right: 10px;"></i>\
+        ' + message + '\
+    ';
+    
+    document.body.appendChild(alertDiv);
+    
+    setTimeout(function() {
+        alertDiv.style.animation = 'slideOut 0.3s ease';
         setTimeout(function() {
-            alertDiv.remove();
-        }, 5000);
+            if (alertDiv.parentNode) {
+                alertDiv.parentNode.removeChild(alertDiv);
+            }
+        }, 300);
+    }, 4000);
+    
+    // Adicionar estilos CSS se não existirem
+    if (!document.getElementById('backup-alert-styles')) {
+        var style = document.createElement('style');
+        style.id = 'backup-alert-styles';
+        style.textContent = '\
+            @keyframes slideIn {\
+                from { transform: translateX(100%); opacity: 0; }\
+                to { transform: translateX(0); opacity: 1; }\
+            }\
+            @keyframes slideOut {\
+                from { transform: translateX(0); opacity: 1; }\
+                to { transform: translateX(100%); opacity: 0; }\
+            }\
+            .backup-item {\
+                border: 1px solid #ddd;\
+                border-radius: 5px;\
+                padding: 15px;\
+                margin-bottom: 10px;\
+                display: flex;\
+                justify-content: space-between;\
+                align-items: center;\
+            }\
+            .backup-item-info {\
+                flex: 1;\
+            }\
+            .backup-name {\
+                font-weight: bold;\
+                margin-bottom: 5px;\
+            }\
+            .backup-date {\
+                color: #666;\
+                font-size: 0.9em;\
+            }\
+        ';
+        document.head.appendChild(style);
     }
 }
 
 // ============================================
-// 7. INTEGRAÇÃO COM O SISTEMA
+// 6. INICIALIZAÇÃO E INTEGRAÇÃO
 // ============================================
 
 /**
- * Integra com o sistema principal
+ * Inicializa o sistema
+ */
+function initSimpleBackup() {
+    console.log('🚀 Iniciando sistema de backup simples...');
+    
+    // Verificar token na URL (para redirect)
+    checkTokenFromURL();
+    
+    // Tentar login automático
+    tryAutoLogin();
+    
+    // Adicionar UI
+    setTimeout(addSimpleBackupUI, 1000);
+    
+    console.log('✅ Sistema de backup pronto');
+}
+
+/**
+ * Integra com sistema principal
  */
 function integrateWithMainSystem() {
-    console.log('🔧 Integrando backup com sistema principal...');
-    
-    // Sobrescrever saveData para backup automático
+    // Backup automático após salvar
     if (typeof saveData === 'function') {
         var originalSaveData = saveData;
         saveData = async function() {
             var result = await originalSaveData.apply(this, arguments);
             
-            // Backup automático após salvar (apenas se estiver logado)
-            if (driveBackupState.signedIn && !driveBackupState.backupInProgress) {
-                setTimeout(function() {
-                    createBackup('auto_save');
-                }, 3000);
+            // Backup automático (apenas se estiver logado e não houver backup recente)
+            if (backupState.signedIn) {
+                var lastBackup = localStorage.getItem('last_auto_backup');
+                var now = Date.now();
+                
+                if (!lastBackup || (now - parseInt(lastBackup)) > 3600000) { // 1 hora
+                    setTimeout(function() {
+                        createSimpleBackup('auto_save');
+                        localStorage.setItem('last_auto_backup', now.toString());
+                    }, 2000);
+                }
             }
             
             return result;
         };
     }
-    
-    console.log('✅ Backup integrado com sistema');
 }
 
 // ============================================
-// 8. INICIALIZAÇÃO AUTOMÁTICA
+// 7. INICIALIZAÇÃO AUTOMÁTICA
 // ============================================
 
-// Inicializar quando o DOM estiver pronto
-document.addEventListener('DOMContentLoaded', function() {
-    console.log('📦 Inicializando sistema de backup...');
-    
-    // Aguardar um pouco para o sistema principal carregar
-    setTimeout(async function() {
-        try {
-            await initDriveBackup();
-            integrateWithMainSystem();
-        } catch (error) {
-            console.warn('⚠️ Backup não inicializado:', error);
-        }
-    }, 3000);
-});
+// Inicializar quando a página carregar
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function() {
+        initSimpleBackup();
+        setTimeout(integrateWithMainSystem, 2000);
+    });
+} else {
+    initSimpleBackup();
+    setTimeout(integrateWithMainSystem, 2000);
+}
 
 // ============================================
-// 9. API PÚBLICA
+// 8. API PÚBLICA (opcional)
 // ============================================
 
-window.DriveBackup = {
-    // Autenticação
+window.SimpleDriveBackup = {
     login: signInToDrive,
     logout: signOutFromDrive,
-    isLoggedIn: isSignedIn,
-    
-    // Operações
-    createBackup: createBackup,
-    listBackups: listBackups,
+    createBackup: createSimpleBackup,
     restoreBackup: restoreBackup,
-    downloadBackup: downloadBackup,
-    
-    // UI
-    showModal: showBackupModal,
-    updateStatus: updateDriveStatus,
-    
-    // Configuração
-    setClientId: function(clientId) {
-        GOOGLE_CLIENT_ID = clientId;
-    },
-    
-    // Estado
-    getState: function() {
-        return driveBackupState;
-    }
+    showModal: showSimpleModal,
+    isConnected: function() { return backupState.signedIn; },
+    setClientId: function(clientId) { GOOGLE_CLIENT_ID = clientId; }
 };
 
-console.log('✅ Sistema de backup Google Drive carregado');
+console.log('✅ Sistema de backup SIMPLES carregado');
