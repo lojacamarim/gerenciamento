@@ -504,7 +504,7 @@ function addHeaderButton() {
     var button = document.createElement('button');
     button.id = 'simple-backup-btn';
     button.className = 'btn btn-light';
-    button.innerHTML = '<i class="fas fa-cloud"></i>';
+    button.innerHTML = '<i class="fas fa-google-drive"></i>';
     button.title = 'Google Drive Backup';
     button.style.marginLeft = '5px';
     
