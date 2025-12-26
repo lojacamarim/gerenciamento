@@ -6,8 +6,8 @@
 // ============================================
 
 // Substitua estes valores pelos seus do Google Cloud Console
-var GOOGLE_CLIENT_ID = 'SEU_CLIENT_ID_AQUI.apps.googleusercontent.com';
-var GOOGLE_API_KEY = 'SUA_API_KEY_AQUI'; // Opcional
+var GOOGLE_CLIENT_ID = '951619466938-fnhdvhrvpp3jmj8om1pracs1pqarui1k.apps.googleusercontent.com';
+var GOOGLE_API_KEY = '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'; // Opcional
 
 // Nome da pasta de backups
 var BACKUP_FOLDER_NAME = 'Camarim Backups';
