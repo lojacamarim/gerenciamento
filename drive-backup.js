@@ -2,10 +2,6 @@
 // Sistema de backup e sincronização com Google Drive para Sistema Camarim
 // Última atualização: 2025
 
-// ============================================
-// CONFIGURAÇÃO E INICIALIZAÇÃO
-// ============================================
-
 // Configuração da API do Google Drive
 const GOOGLE_API_CONFIG = {
     clientId: '951619466938-fnhdvhrvpp3jmj8om1pracs1pqarui1k.apps.googleusercontent.com', // Substituir pelo seu Client ID
