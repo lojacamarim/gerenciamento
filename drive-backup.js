@@ -491,7 +491,7 @@ function addSimpleBackupUI() {
     addHeaderButton();
     
     // Seção nas configurações
-    addSettingsSection();
+    addDatabaseSection();
     
     // Modal simples
     createSimpleModal();
