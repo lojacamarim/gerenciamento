@@ -1,10 +1,6 @@
 // drive-backup-simple.js
 // Sistema de backup ULTRA SIMPLIFICADO para Google Drive
 
-// ============================================
-// CONFIGURAÇÃO SUPER SIMPLES
-// ============================================
-
 // PASSO 1: Obtenha estas credenciais em https://console.cloud.google.com/
 var GOOGLE_CLIENT_ID = '951619466938-fnhdvhrvpp3jmj8om1pracs1pqarui1k.apps.googleusercontent.com';
 
