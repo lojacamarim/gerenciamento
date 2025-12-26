@@ -1,0 +1,190 @@
+/* drive-styles.css */
+/* Estilos específicos para o Google Drive Modal */
+
+/* Google Drive Styles */
+.drive-file-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 15px;
+    border-bottom: 1px solid var(--light-gray);
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.drive-file-item:hover {
+    background-color: rgba(66, 133, 244, 0.05);
+}
+
+.drive-file-info h5 {
+    margin-bottom: 5px;
+    color: var(--dark);
+}
+
+.drive-file-info .file-date {
+    font-size: 0.85rem;
+    color: var(--gray);
+}
+
+.drive-file-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.file-size {
+    font-size: 0.85rem;
+    color: var(--gray);
+    margin-right: 15px;
+}
+
+.drive-status-connected {
+    background-color: rgba(52, 168, 83, 0.1) !important;
+    color: #34A853 !important;
+    border-left-color: #34A853 !important;
+}
+
+.drive-status-disconnected {
+    background-color: rgba(244, 67, 54, 0.1) !important;
+    color: var(--danger) !important;
+    border-left-color: var(--danger) !important;
+}
+
+.drive-backup-option {
+    text-align: center;
+    padding: 20px;
+    border: 2px dashed #ddd;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    transition: var(--transition);
+    margin-bottom: 15px;
+}
+
+.drive-backup-option:hover {
+    border-color: #4285F4;
+    background-color: rgba(66, 133, 244, 0.05);
+}
+
+.drive-backup-option i {
+    font-size: 2.5rem;
+    margin-bottom: 15px;
+    display: block;
+}
+
+.backup-success {
+    color: #34A853;
+}
+
+.backup-error {
+    color: #EA4335;
+}
+
+.backup-warning {
+    color: #FBBC05;
+}
+
+.backup-info {
+    color: #4285F4;
+}
+
+.btn-google-drive {
+    background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);
+    color: white !important;
+    border: none;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+}
+
+.btn-google-drive:hover {
+    background: linear-gradient(135deg, #3367D6 0%, #2E8B57 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(66, 133, 244, 0.3);
+}
+
+.drive-backup-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.drive-backup-card:hover {
+    transform: translateY(-5px);
+    border-color: #4285F4;
+    box-shadow: 0 10px 20px rgba(66, 133, 244, 0.1);
+}
+
+.drive-backup-card .card-icon {
+    transition: all 0.3s ease;
+}
+
+.drive-backup-card:hover .card-icon {
+    transform: scale(1.1);
+}
+
+#backup-list {
+    max-height: 300px;
+    overflow-y: auto;
+    border: 1px solid var(--light-gray);
+    border-radius: var(--border-radius);
+}
+
+#backup-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+#backup-list::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#backup-list::-webkit-scrollbar-thumb {
+    background: #4285F4;
+    border-radius: 4px;
+}
+
+#backup-list::-webkit-scrollbar-thumb:hover {
+    background: #3367D6;
+}
+
+.drive-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+}
+
+.drive-loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid #f3f3f3;
+    border-top: 3px solid #4285F4;
+    border-radius: 50%;
+    animation: drive-spin 1s linear infinite;
+    margin-bottom: 20px;
+}
+
+@keyframes drive-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.drive-empty-state {
+    text-align: center;
+    padding: 40px;
+    color: var(--gray);
+}
+
+.drive-empty-state i {
+    font-size: 3rem;
+    margin-bottom: 20px;
+    color: #ddd;
+}
+
+.google-colors {
+    background: linear-gradient(135deg, #4285F4 0%, #34A853 33%, #FBBC05 66%, #EA4335 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}

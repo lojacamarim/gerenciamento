@@ -1,0 +1,188 @@
+<!-- drive-modal.html -->
+<!-- Modal do Google Drive (será carregado dinamicamente) -->
+
+<!-- Google Drive Modal -->
+<div class="modal" id="google-drive-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><span class="google-colors">Google Drive</span> Backup</h3>
+            <button class="modal-close" data-modal="google-drive-modal">&times;</button>
+        </div>
+        <div class="modal-body">
+            <!-- Status de autenticação -->
+            <div id="drive-auth-status" class="alert">
+                <div class="drive-loading">
+                    <div class="drive-loading-spinner"></div>
+                    <p>Carregando Google Drive...</p>
+                </div>
+            </div>
+            
+            <!-- Seção de autenticação -->
+            <div id="drive-auth-section" class="d-none">
+                <div class="text-center mb-20">
+                    <i class="fab fa-google-drive fa-3x mb-20 google-colors"></i>
+                    <h4>Conectar com Google Drive</h4>
+                    <p class="form-text">Conecte sua conta do Google Drive para fazer backup e restaurar seus dados de forma segura.</p>
+                    <p class="form-text"><small>Seus dados são armazenados em seu próprio Google Drive e não são compartilhados.</small></p>
+                    <button class="btn btn-success btn-block" id="drive-auth-btn" style="background: linear-gradient(135deg, #4285F4 0%, #34A853 100%);">
+                        <i class="fab fa-google"></i> Conectar com Google Drive
+                    </button>
+                </div>
+                
+                <div class="alert alert-info mt-20">
+                    <i class="fas fa-info-circle"></i>
+                    <div>
+                        <strong>Benefícios do backup no Google Drive:</strong>
+                        <ul style="margin: 10px 0 0 20px;">
+                            <li>Segurança dos seus dados</li>
+                            <li>Acesso de qualquer dispositivo</li>
+                            <li>Histórico de versões</li>
+                            <li>15GB de armazenamento gratuito</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Seção de backup/restauração -->
+            <div id="drive-backup-section" class="d-none">
+                <div class="text-center mb-20">
+                    <div class="alert drive-status-connected">
+                        <i class="fas fa-check-circle"></i>
+                        <span>Conectado como: <strong id="drive-user-email">${googleDriveState.userEmail}</strong></span>
+                    </div>
+                </div>
+                
+                <div class="dashboard-cards">
+                    <!-- Card Backup -->
+                    <div class="card drive-backup-card" id="backup-now-card">
+                        <div class="card-icon" style="background-color: rgba(66, 133, 244, 0.1); color: #4285F4;">
+                            <i class="fas fa-cloud-upload-alt"></i>
+                        </div>
+                        <h3>Fazer Backup Agora</h3>
+                        <div class="card-value">Salvar no Drive</div>
+                        <div class="card-change" id="last-backup-info">Nunca</div>
+                    </div>
+                    
+                    <!-- Card Restaurar -->
+                    <div class="card drive-backup-card" id="restore-drive-card">
+                        <div class="card-icon" style="background-color: rgba(52, 168, 83, 0.1); color: #34A853;">
+                            <i class="fas fa-cloud-download-alt"></i>
+                        </div>
+                        <h3>Restaurar Backup</h3>
+                        <div class="card-value">Do Drive</div>
+                        <div class="card-change" id="available-backups">Carregando...</div>
+                    </div>
+                </div>
+                
+                <!-- Lista de backups disponíveis -->
+                <div id="backup-list-container" class="mt-20 d-none">
+                    <h4><i class="fas fa-history"></i> Backups Disponíveis</h4>
+                    <p class="form-text">Clique em um backup para ver detalhes ou restaurar</p>
+                    <div id="backup-list" class="mt-10">
+                        <!-- Lista de backups será carregada aqui -->
+                        <div class="drive-empty-state">
+                            <i class="fas fa-cloud"></i>
+                            <h4>Nenhum backup encontrado</h4>
+                            <p>Faça seu primeiro backup clicando em "Fazer Backup Agora"</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Configurações avançadas -->
+                <div class="mt-30">
+                    <h4><i class="fas fa-cog"></i> Configurações Avançadas</h4>
+                    <div class="form-row mt-15">
+                        <div class="form-group">
+                            <label for="backup-frequency">
+                                <i class="fas fa-sync-alt"></i> Frequência Automática
+                            </label>
+                            <select id="backup-frequency" class="form-control">
+                                <option value="none">Manual (apenas quando eu clicar)</option>
+                                <option value="daily">Diário (todos os dias)</option>
+                                <option value="weekly">Semanal (toda semana)</option>
+                                <option value="monthly">Mensal (todo mês)</option>
+                            </select>
+                            <div class="form-text">O backup automático ocorrerá silenciosamente</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="backup-retention">
+                                <i class="fas fa-calendar-times"></i> Retenção de Backups
+                            </label>
+                            <div class="input-group">
+                                <input type="number" id="backup-retention" class="form-control" min="1" max="365" value="30">
+                                <div class="input-group-append">
+                                    <span class="input-group-text">dias</span>
+                                </div>
+                            </div>
+                            <div class="form-text">Backups mais antigos serão excluídos automaticamente</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group mt-15">
+                        <label for="backup-name-prefix">
+                            <i class="fas fa-tag"></i> Prefixo do Nome do Backup
+                        </label>
+                        <input type="text" id="backup-name-prefix" class="form-control" value="camarim-backup" placeholder="Nome do arquivo de backup">
+                        <div class="form-text">Ex: camarim-backup-2024-01-15.json</div>
+                    </div>
+                </div>
+                
+                <!-- Informações de uso -->
+                <div class="alert alert-info mt-30">
+                    <i class="fas fa-chart-pie"></i>
+                    <div>
+                        <strong>Uso do Google Drive:</strong>
+                        <div class="mt-10">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+                                <span>Backups armazenados:</span>
+                                <span id="drive-backup-count">0</span>
+                            </div>
+                            <div style="background: #e9ecef; height: 8px; border-radius: 4px; overflow: hidden;">
+                                <div id="drive-usage-bar" style="background: #4285F4; height: 100%; width: 0%; transition: width 0.5s;"></div>
+                            </div>
+                            <small class="text-muted" id="drive-usage-text">Estimativa de uso: 0 MB</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Botão de desconectar -->
+                <div class="text-center mt-30 pt-20 border-top">
+                    <button class="btn btn-outline-danger" id="drive-signout-btn">
+                        <i class="fas fa-sign-out-alt"></i> Desconectar do Google Drive
+                    </button>
+                    <p class="form-text mt-10">
+                        <small>Ao desconectar, os backups permanecem em sua conta do Google Drive</small>
+                    </p>
+                </div>
+            </div>
+            
+            <!-- Seção de ajuda -->
+            <div class="mt-30 border-top pt-20">
+                <h5><i class="fas fa-question-circle"></i> Ajuda Rápida</h5>
+                <div class="form-row mt-10">
+                    <div class="form-group">
+                        <div class="alert alert-light">
+                            <strong>Como funciona?</strong>
+                            <p class="mb-0">Seus dados são salvos como arquivos JSON em sua conta pessoal do Google Drive.</p>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <div class="alert alert-light">
+                            <strong>É seguro?</strong>
+                            <p class="mb-0">Sim! Apenas você tem acesso aos seus backups através de sua conta do Google.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-light" data-modal="google-drive-modal">
+                <i class="fas fa-times"></i> Fechar
+            </button>
+            <button class="btn btn-success" id="save-drive-settings">
+                <i class="fas fa-save"></i> Salvar Configurações
+            </button>
+        </div>
+    </div>
+</div>
