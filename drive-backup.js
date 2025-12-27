@@ -526,11 +526,11 @@ function updateHeaderButton() {
     if (backupState.signedIn) {
         headerBtn.className = 'btn btn-success';
         headerBtn.title = 'Conectado ao Google Drive - Clique para gerenciar backups';
-        headerBtn.innerHTML = '<i class="fas fa-cloud"></i> <small style="font-size: 0.7em;">✓</small>';
+        headerBtn.innerHTML = '<i class="fab fa-google-drive"></i> <small style="font-size: 0.7em;">✓</small>';
     } else {
         headerBtn.className = 'btn btn-light';
         headerBtn.title = 'Conectar ao Google Drive';
-        headerBtn.innerHTML = '<i class="fas fa-cloud"></i>';
+        headerBtn.innerHTML = '<i class="fab fa-google-drive"></i>';
     }
 }
 
