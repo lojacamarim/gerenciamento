@@ -548,7 +548,7 @@ function createSimpleModal() {
     modal.innerHTML = '\
         <div class="modal-content" style="max-width: 700px;">\
             <div class="modal-header">\
-                <h2><i class="fas fa-cloud"></i> Google Drive Backup</h2>\
+                <h2><i class="fab fa-google-drive"></i> Google Drive Backup</h2>\
                 <button class="modal-close">&times;</button>\
             </div>\
             \
@@ -670,7 +670,7 @@ function updateSimpleModal() {
         if (contentSection) contentSection.classList.remove('d-none');
     } else {
         statusEl.className = 'alert alert-info';
-        statusEl.innerHTML = '<i class="fas fa-cloud"></i> Conecte-se ao Google Drive';
+        statusEl.innerHTML = '<i class="fab fa-google-drive"></i> Conecte-se ao Google Drive';
         if (loginSection) loginSection.classList.remove('d-none');
         if (contentSection) contentSection.classList.add('d-none');
     }
